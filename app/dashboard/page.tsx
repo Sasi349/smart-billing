@@ -38,7 +38,7 @@ export default function DashboardPage() {
       <Header />
       
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
           <p className="text-gray-600 mt-1">Welcome to Smart Billing System</p>

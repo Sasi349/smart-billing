@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft } from 'lucide-react'
+import { useToast } from '@/components/ui/toast'
 
 interface Supplier {
   id: string
@@ -16,12 +17,15 @@ interface Supplier {
   address: string
   gstin: string
   pan: string
+  accountNumber: string
+  ifscCode: string
   phone: string
   email: string
 }
 
 export default function SuppliersPage() {
   const router = useRouter()
+  const { showToast, ToastContainer } = useToast()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -30,6 +34,8 @@ export default function SuppliersPage() {
     address: '',
     gstin: '',
     pan: '',
+    accountNumber: '',
+    ifscCode: '',
     phone: '',
     email: ''
   })
@@ -69,6 +75,8 @@ export default function SuppliersPage() {
       address: supplier.address,
       gstin: supplier.gstin,
       pan: supplier.pan,
+      accountNumber: supplier.accountNumber,
+      ifscCode: supplier.ifscCode,
       phone: supplier.phone,
       email: supplier.email
     })
@@ -82,6 +90,8 @@ export default function SuppliersPage() {
       address: '',
       gstin: '',
       pan: '',
+      accountNumber: '',
+      ifscCode: '',
       phone: '',
       email: ''
     })
@@ -91,8 +101,8 @@ export default function SuppliersPage() {
     e.preventDefault()
     
     // Basic validation
-    if (!formData.supplierName || !formData.businessName || !formData.address || !formData.gstin || !formData.pan || !formData.phone || !formData.email) {
-      alert('Please fill in all required fields')
+    if (!formData.supplierName || !formData.businessName || !formData.address || !formData.gstin || !formData.pan || !formData.accountNumber || !formData.ifscCode) {
+      showToast('Please fill in all required fields', 'error')
       return
     }
 
@@ -105,7 +115,7 @@ export default function SuppliersPage() {
       )
       setSuppliers(updatedSuppliers)
       localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers))
-      alert('Supplier updated successfully!')
+      showToast('Supplier updated successfully!', 'success')
       setEditingId(null)
     } else {
       // Create new supplier
@@ -118,7 +128,7 @@ export default function SuppliersPage() {
       const updatedSuppliers = [...suppliers, newSupplier]
       setSuppliers(updatedSuppliers)
       localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers))
-      alert('Supplier added successfully!')
+      showToast('Supplier added successfully!', 'success')
     }
 
     // Reset form
@@ -128,6 +138,8 @@ export default function SuppliersPage() {
       address: '',
       gstin: '',
       pan: '',
+      accountNumber: '',
+      ifscCode: '',
       phone: '',
       email: ''
     })
@@ -136,9 +148,10 @@ export default function SuppliersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+      <ToastContainer />
       
       {/* Back Button */}
-      <div className="max-w-4xl mx-auto px-4 pt-4">
+      <div className="max-w-4xl mx-auto px-4 pt-20">
         <Button
           variant="ghost"
           onClick={() => router.back()}
@@ -228,7 +241,32 @@ export default function SuppliersPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="accountNumber">Account Number *</Label>
+                  <Input
+                    id="accountNumber"
+                    name="accountNumber"
+                    value={formData.accountNumber}
+                    onChange={handleInputChange}
+                    placeholder="Enter bank account number"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ifscCode">IFSC Code *</Label>
+                  <Input
+                    id="ifscCode"
+                    name="ifscCode"
+                    value={formData.ifscCode}
+                    onChange={handleInputChange}
+                    placeholder="Enter IFSC code"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
                     name="phone"
@@ -236,11 +274,10 @@ export default function SuppliersPage() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="Enter phone number"
-                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     name="email"
@@ -248,7 +285,6 @@ export default function SuppliersPage() {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="Enter email address"
-                    required
                   />
                 </div>
               </div>
@@ -286,6 +322,8 @@ export default function SuppliersPage() {
                       <div className="text-sm text-gray-600">
                         <p><span className="font-medium">GSTIN:</span> {supplier.gstin}</p>
                         <p><span className="font-medium">PAN:</span> {supplier.pan}</p>
+                        <p><span className="font-medium">Account Number:</span> {supplier.accountNumber}</p>
+                        <p><span className="font-medium">IFSC Code:</span> {supplier.ifscCode}</p>
                         <p><span className="font-medium">Phone:</span> {supplier.phone}</p>
                         <p><span className="font-medium">Email:</span> {supplier.email}</p>
                       </div>

@@ -55,6 +55,19 @@ export default function LoginPage() {
           >
             Login
           </Button>
+
+          <div className="text-center pt-4 border-gray-200">
+            <button
+              onClick={() => {
+                const whatsappNumber = '919994452406' // Replace with actual support number
+                const message = encodeURIComponent('Hi, I need help with Smart Billing system.')
+                window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank')
+              }}
+              className="text-indigo-600 hover:text-indigo-700 text-sm font-medium transition-colors"
+            >
+              Contact Us
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>

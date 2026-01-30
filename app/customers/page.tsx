@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft } from 'lucide-react'
+import { useToast } from '@/components/ui/toast'
 
 interface Customer {
   id: string
@@ -21,6 +22,7 @@ interface Customer {
 
 export default function CustomersPage() {
   const router = useRouter()
+  const { showToast, ToastContainer } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -87,8 +89,8 @@ export default function CustomersPage() {
     e.preventDefault()
     
     // Basic validation
-    if (!formData.customerName || !formData.businessName || !formData.address || !formData.gstin || !formData.phone || !formData.email) {
-      alert('Please fill in all required fields')
+    if (!formData.customerName || !formData.address) {
+      showToast('Please fill in all required fields', 'error')
       return
     }
 
@@ -101,7 +103,7 @@ export default function CustomersPage() {
       )
       setCustomers(updatedCustomers)
       localStorage.setItem('customers', JSON.stringify(updatedCustomers))
-      alert('Customer updated successfully!')
+      showToast('Customer updated successfully!', 'success')
       setEditingId(null)
     } else {
       // Create new customer
@@ -114,7 +116,7 @@ export default function CustomersPage() {
       const updatedCustomers = [...customers, newCustomer]
       setCustomers(updatedCustomers)
       localStorage.setItem('customers', JSON.stringify(updatedCustomers))
-      alert('Customer added successfully!')
+      showToast('Customer added successfully!', 'success')
     }
 
     // Reset form
@@ -131,9 +133,10 @@ export default function CustomersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+      <ToastContainer />
       
       {/* Back Button */}
-      <div className="max-w-4xl mx-auto px-4 pt-4">
+      <div className="max-w-4xl mx-auto px-4 pt-20">
         <Button
           variant="ghost"
           onClick={() => router.back()}
@@ -171,14 +174,13 @@ export default function CustomersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="businessName">Business Name *</Label>
+                  <Label htmlFor="businessName">Business Name</Label>
                   <Input
                     id="businessName"
                     name="businessName"
                     value={formData.businessName}
                     onChange={handleInputChange}
                     placeholder="Enter business name"
-                    required
                   />
                 </div>
               </div>
@@ -198,18 +200,17 @@ export default function CustomersPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gstin">GSTIN *</Label>
+                  <Label htmlFor="gstin">GSTIN</Label>
                   <Input
                     id="gstin"
                     name="gstin"
                     value={formData.gstin}
                     onChange={handleInputChange}
                     placeholder="Enter GSTIN number"
-                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
                     name="phone"
@@ -217,13 +218,12 @@ export default function CustomersPage() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="Enter phone number"
-                    required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   name="email"
@@ -231,7 +231,6 @@ export default function CustomersPage() {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="Enter email address"
-                  required
                 />
               </div>
 

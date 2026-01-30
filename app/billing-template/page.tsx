@@ -14,6 +14,8 @@ interface Supplier {
   address: string
   gstin: string
   pan: string
+  accountNumber: string
+  ifscCode: string
   phone: string
   email: string
 }
@@ -59,7 +61,9 @@ const defaultBusinessDetails = {
   gstin: "06AAHCT1234C1ZV",
   phone: "+91 98765 43210",
   email: "billing@techsolutions.com",
-  pan: "AAHCT1234C"
+  pan: "AAHCT1234C",
+  accountNumber: "1234567890123456",
+  ifscCode: "HDFC0001234"
 }
 
 const defaultCustomerDetails = {
@@ -147,7 +151,9 @@ export default function BillingTemplatePage() {
         gstin: invoiceData.supplier.gstin,
         phone: invoiceData.supplier.phone,
         email: invoiceData.supplier.email,
-        pan: invoiceData.supplier.pan
+        pan: invoiceData.supplier.pan,
+        accountNumber: invoiceData.supplier.accountNumber,
+        ifscCode: invoiceData.supplier.ifscCode
       }
     }
     return defaultBusinessDetails
@@ -222,7 +228,7 @@ export default function BillingTemplatePage() {
       <Header />
       
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-8 pt-20">
         {/* Back and Print Buttons */}
         <div className="mb-4 flex justify-between">
           <Button
@@ -350,7 +356,9 @@ export default function BillingTemplatePage() {
           {/* Footer Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
-              <p className="text-xs sm:text-sm text-gray-600 mb-2">PAN: {businessDetails.pan}</p>
+              <p className="text-xs sm:text-sm text-gray-600 mb-2">Account Number: <span className="font-semibold text-gray-900">{businessDetails.accountNumber}</span></p>
+              <p className="text-xs sm:text-sm text-gray-600 mb-2">IFSC Code: <span className="font-semibold text-gray-900">{businessDetails.ifscCode}</span></p>
+              <p className="text-xs sm:text-sm text-gray-600 mb-2">PAN: <span className="font-semibold text-gray-900">{businessDetails.pan}</span></p>
               <p className="text-xs sm:text-sm text-gray-600">This is a computer-generated invoice and does not require signature.</p>
             </div>
             <div className="text-right">
