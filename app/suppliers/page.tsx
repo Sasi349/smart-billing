@@ -19,6 +19,7 @@ interface Supplier {
   pan: string
   accountNumber: string
   ifscCode: string
+  accountName?: string
   phone: string
   email: string
 }
@@ -36,6 +37,7 @@ export default function SuppliersPage() {
     pan: '',
     accountNumber: '',
     ifscCode: '',
+    accountName: '',
     phone: '',
     email: ''
   })
@@ -77,6 +79,7 @@ export default function SuppliersPage() {
       pan: supplier.pan,
       accountNumber: supplier.accountNumber,
       ifscCode: supplier.ifscCode,
+      accountName: supplier.accountName || '',
       phone: supplier.phone,
       email: supplier.email
     })
@@ -92,6 +95,7 @@ export default function SuppliersPage() {
       pan: '',
       accountNumber: '',
       ifscCode: '',
+      accountName: '',
       phone: '',
       email: ''
     })
@@ -140,6 +144,7 @@ export default function SuppliersPage() {
       pan: '',
       accountNumber: '',
       ifscCode: '',
+      accountName: '',
       phone: '',
       email: ''
     })
@@ -262,6 +267,17 @@ export default function SuppliersPage() {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="accountName">Account Name</Label>
+                <Input
+                  id="accountName"
+                  name="accountName"
+                  value={formData.accountName}
+                  onChange={handleInputChange}
+                  placeholder="Enter account holder name (optional)"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

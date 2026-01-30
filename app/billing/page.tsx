@@ -19,6 +19,7 @@ interface Supplier {
   pan: string
   accountNumber: string
   ifscCode: string
+  accountName?: string
   phone: string
   email: string
 }
@@ -74,6 +75,7 @@ export default function BillingPage() {
     pan: '',
     accountNumber: '',
     ifscCode: '',
+    accountName: '',
     phone: '',
     email: ''
   })
@@ -347,6 +349,7 @@ export default function BillingPage() {
       pan: '',
       accountNumber: '',
       ifscCode: '',
+      accountName: '',
       phone: '',
       email: ''
     })
@@ -936,6 +939,15 @@ export default function BillingPage() {
                     onChange={(e) => setSupplierFormData(prev => ({ ...prev, ifscCode: e.target.value }))}
                     placeholder="Enter IFSC code"
                     required
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="accountName">Account Name</Label>
+                  <Input
+                    id="accountName"
+                    value={supplierFormData.accountName}
+                    onChange={(e) => setSupplierFormData(prev => ({ ...prev, accountName: e.target.value }))}
+                    placeholder="Enter account holder name (optional)"
                   />
                 </div>
                 <div className="space-y-2">

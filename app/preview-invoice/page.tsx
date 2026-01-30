@@ -16,6 +16,7 @@ interface Supplier {
   pan: string
   accountNumber: string
   ifscCode: string
+  accountName?: string
   phone: string
   email: string
 }
@@ -122,7 +123,8 @@ export default function PreviewInvoicePage() {
     email: invoiceData.supplier.email,
     pan: invoiceData.supplier.pan,
     accountNumber: invoiceData.supplier.accountNumber,
-    ifscCode: invoiceData.supplier.ifscCode
+    ifscCode: invoiceData.supplier.ifscCode,
+    accountName: invoiceData.supplier.accountName
   }
 
   const customerDetails = {
@@ -310,6 +312,9 @@ export default function PreviewInvoicePage() {
             <div>
               <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">Account Number: <span className="font-semibold text-gray-900">{businessDetails.accountNumber}</span></p>
               <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">IFSC Code: <span className="font-semibold text-gray-900">{businessDetails.ifscCode}</span></p>
+              {businessDetails.accountName && (
+                <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">Account Name: <span className="font-semibold text-gray-900">{businessDetails.accountName}</span></p>
+              )}
               <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">PAN: <span className="font-semibold text-gray-900">{businessDetails.pan}</span></p>
               <p className="text-xs sm:text-sm text-gray-600">This is a computer-generated invoice and does not require signature.</p>
             </div>
