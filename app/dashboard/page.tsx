@@ -10,11 +10,22 @@ export default function DashboardPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
+    // Check if user is authenticated by verifying the auth-token cookie
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          credentials: 'include'
+        })
+        
+        if (!response.ok) {
+          router.push('/login')
+        }
+      } catch (error) {
+        router.push('/login')
+      }
     }
+    
+    checkAuth()
   }, [router])
 
   const handleCustomersClick = () => {

@@ -165,10 +165,6 @@ export default function RegisterPage() {
                     }`}
                   />
                 </div>
-                {/* Debug info - remove later */}
-                <div className="text-xs text-gray-500 mt-1">
-                  Debug: {passwordValidation.strength} | {formData.password.length} chars
-                </div>
               </div>
             )}
 
