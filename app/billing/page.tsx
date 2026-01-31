@@ -11,7 +11,7 @@ import { ArrowLeft, Plus, X } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 
 interface Supplier {
-  id: string
+  _id: string
   supplierName: string
   businessName: string
   address: string
@@ -25,7 +25,7 @@ interface Supplier {
 }
 
 interface Customer {
-  id: string
+  _id: string
   customerName: string
   businessName: string
   address: string
@@ -119,33 +119,39 @@ export default function BillingPage() {
   }
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
-      return
-    }
-
-    // Load suppliers and customers from localStorage
-    const savedSuppliers = localStorage.getItem('suppliers')
-    const savedCustomers = localStorage.getItem('customers')
-
-    if (savedSuppliers) {
+    // Check if user is authenticated by testing API
+    const checkAuth = async () => {
       try {
-        setSuppliers(JSON.parse(savedSuppliers))
+        const response = await fetch('/api/customers')
+        if (!response.ok) {
+          router.push('/login')
+          return
+        }
+        // Load customers from API
+        const customersData = await response.json()
+        setCustomers(customersData)
+      } catch (error) {
+        console.error('Auth check failed:', error)
+        router.push('/login')
+        return
+      }
+
+      // Load suppliers from API
+      try {
+        const response = await fetch('/api/suppliers')
+        if (response.ok) {
+          const suppliersData = await response.json()
+          setSuppliers(suppliersData)
+        }
       } catch (error) {
         console.error('Error loading suppliers:', error)
       }
     }
 
-    if (savedCustomers) {
-      try {
-        setCustomers(JSON.parse(savedCustomers))
-      } catch (error) {
-        console.error('Error loading customers:', error)
-      }
-    }
+    checkAuth()
+  }, [router])
 
+  useEffect(() => {
     // Check if there's saved invoice data to restore (coming back from preview)
     const savedInvoiceData = localStorage.getItem('currentInvoice')
     if (savedInvoiceData) {
@@ -153,10 +159,10 @@ export default function BillingPage() {
         const invoice = JSON.parse(savedInvoiceData)
         // Restore form data
         if (invoice.supplier) {
-          setSelectedSupplier(invoice.supplier.id)
+          setSelectedSupplier(invoice.supplier._id)
         }
         if (invoice.customer) {
-          setSelectedCustomer(invoice.customer.id)
+          setSelectedCustomer(invoice.customer._id)
         }
         setInvoiceData(prev => ({
           ...prev,
@@ -187,12 +193,12 @@ export default function BillingPage() {
         invoiceNumber: invoiceNum
       }))
     }
-  }, [router])
+  }, [suppliers, customers])
 
   useEffect(() => {
     // Auto-fill supplier details when selected
     if (selectedSupplier) {
-      const supplier = suppliers.find(s => s.id === selectedSupplier)
+      const supplier = suppliers.find(s => s._id === selectedSupplier)
       if (supplier) {
         setInvoiceData(prev => ({
           ...prev,
@@ -205,7 +211,7 @@ export default function BillingPage() {
   useEffect(() => {
     // Auto-fill customer details when selected
     if (selectedCustomer) {
-      const customer = customers.find(c => c.id === selectedCustomer)
+      const customer = customers.find(c => c._id === selectedCustomer)
       if (customer) {
         setInvoiceData(prev => ({
           ...prev,
@@ -315,88 +321,110 @@ export default function BillingPage() {
     })
   }
 
-  const handleSaveSupplier = () => {
+  const handleSaveSupplier = async () => {
     // Basic validation
     if (!supplierFormData.supplierName || !supplierFormData.businessName || !supplierFormData.address || !supplierFormData.gstin || !supplierFormData.pan || !supplierFormData.accountNumber || !supplierFormData.ifscCode) {
       showToast('Please fill in all required fields', 'error')
       return
     }
 
-    // Create new supplier
-    const newSupplier: Supplier = {
-      id: Date.now().toString(),
-      ...supplierFormData
+    try {
+      const response = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(supplierFormData),
+      })
+
+      if (response.ok) {
+        const newSupplier = await response.json()
+        
+        // Update suppliers list
+        setSuppliers(prev => [...prev, newSupplier])
+        
+        // Auto-select the new supplier
+        setSelectedSupplier(newSupplier._id)
+        setInvoiceData(prev => ({
+          ...prev,
+          supplier: newSupplier
+        }))
+
+        // Reset form and close modal
+        setSupplierFormData({
+          supplierName: '',
+          businessName: '',
+          address: '',
+          gstin: '',
+          pan: '',
+          accountNumber: '',
+          ifscCode: '',
+          accountName: '',
+          phone: '',
+          email: ''
+        })
+        setShowSupplierModal(false)
+
+        // Show success message
+        showToast('Supplier added successfully!', 'success')
+      } else {
+        const data = await response.json()
+        showToast(data.error || 'Failed to add supplier', 'error')
+      }
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error')
     }
-
-    // Save to localStorage
-    const updatedSuppliers = [...suppliers, newSupplier]
-    localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers))
-    setSuppliers(updatedSuppliers)
-
-    // Auto-select the new supplier
-    setSelectedSupplier(newSupplier.id)
-    setInvoiceData(prev => ({
-      ...prev,
-      supplier: newSupplier
-    }))
-
-    // Reset form and close modal
-    setSupplierFormData({
-      supplierName: '',
-      businessName: '',
-      address: '',
-      gstin: '',
-      pan: '',
-      accountNumber: '',
-      ifscCode: '',
-      accountName: '',
-      phone: '',
-      email: ''
-    })
-    setShowSupplierModal(false)
-
-    // Show success message
-    showToast('Supplier added successfully!', 'success')
   }
 
-  const handleSaveCustomer = () => {
+  const handleSaveCustomer = async () => {
     // Basic validation
     if (!customerFormData.customerName || !customerFormData.address) {
       showToast('Please fill in all required fields', 'error')
       return
     }
 
-    // Create new customer
-    const newCustomer: Customer = {
-      id: Date.now().toString(),
-      ...customerFormData
+    try {
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(customerFormData),
+      })
+
+      if (response.ok) {
+        const newCustomer = await response.json()
+        
+        // Update customers list
+        setCustomers(prev => [...prev, newCustomer])
+        
+        // Auto-select the new customer
+        setSelectedCustomer(newCustomer._id)
+        setInvoiceData(prev => ({
+          ...prev,
+          customer: newCustomer
+        }))
+
+        // Reset form and close modal
+        setCustomerFormData({
+          customerName: '',
+          businessName: '',
+          address: '',
+          gstin: '',
+          phone: '',
+          email: ''
+        })
+        setShowCustomerModal(false)
+
+        // Show success message
+        showToast('Customer added successfully!', 'success')
+      } else {
+        const data = await response.json()
+        showToast(data.error || 'Failed to add customer', 'error')
+      }
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error')
     }
-
-    // Save to localStorage
-    const updatedCustomers = [...customers, newCustomer]
-    localStorage.setItem('customers', JSON.stringify(updatedCustomers))
-    setCustomers(updatedCustomers)
-
-    // Auto-select the new customer
-    setSelectedCustomer(newCustomer.id)
-    setInvoiceData(prev => ({
-      ...prev,
-      customer: newCustomer
-    }))
-
-    // Reset form and close modal
-    setCustomerFormData({
-      customerName: '',
-      businessName: '',
-      address: '',
-      gstin: '',
-      phone: '',
-      email: ''
-    })
-    setShowCustomerModal(false)
-
-    // Show success message
-    showToast('Customer added successfully!', 'success')
   }
 
   const handleGenerateInvoice = () => {
@@ -548,7 +576,7 @@ export default function BillingPage() {
                 >
                   <option value="">Choose a supplier...</option>
                   {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
+                    <option key={supplier._id} value={supplier._id}>
                       {supplier.supplierName} - {supplier.businessName}
                     </option>
                   ))}
@@ -597,7 +625,7 @@ export default function BillingPage() {
                 >
                   <option value="">Choose a customer...</option>
                   {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
+                    <option key={customer._id} value={customer._id}>
                       {customer.customerName} - {customer.businessName}
                     </option>
                   ))}

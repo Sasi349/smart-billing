@@ -12,9 +12,16 @@ import {
 export default function Header() {
   const router = useRouter()
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn')
-    router.push('/login')
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      })
+      router.push('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+      router.push('/login')
+    }
   }
 
   return (

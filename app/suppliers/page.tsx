@@ -11,7 +11,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 
 interface Supplier {
-  id: string
+  _id: string
   supplierName: string
   businessName: string
   address: string
@@ -22,12 +22,15 @@ interface Supplier {
   accountName?: string
   phone: string
   email: string
+  createdAt: string
+  updatedAt: string
 }
 
 export default function SuppliersPage() {
   const router = useRouter()
   const { showToast, ToastContainer } = useToast()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     supplierName: '',
@@ -43,34 +46,28 @@ export default function SuppliersPage() {
   })
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
-      return
-    }
+    loadSuppliers()
+  }, [])
 
-    // Load suppliers from localStorage
-    const savedSuppliers = localStorage.getItem('suppliers')
-    if (savedSuppliers) {
-      try {
-        setSuppliers(JSON.parse(savedSuppliers))
-      } catch (error) {
-        console.error('Error loading suppliers:', error)
+  const loadSuppliers = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/suppliers')
+      if (response.ok) {
+        const data = await response.json()
+        setSuppliers(data)
+      } else if (response.status === 401) {
+        router.push('/login')
       }
+    } catch (error) {
+      console.error('Error loading suppliers:', error)
+    } finally {
+      setIsLoading(false)
     }
-  }, [router])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
   }
 
   const handleEdit = (supplier: Supplier) => {
-    setEditingId(supplier.id)
+    setEditingId(supplier._id)
     setFormData({
       supplierName: supplier.supplierName,
       businessName: supplier.businessName,
@@ -101,53 +98,57 @@ export default function SuppliersPage() {
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Basic validation
     if (!formData.supplierName || !formData.businessName || !formData.address || !formData.gstin || !formData.pan || !formData.accountNumber || !formData.ifscCode) {
       showToast('Please fill in all required fields', 'error')
       return
     }
 
-    if (editingId) {
-      // Update existing supplier
-      const updatedSuppliers = suppliers.map(supplier => 
-        supplier.id === editingId 
-          ? { ...supplier, ...formData }
-          : supplier
-      )
-      setSuppliers(updatedSuppliers)
-      localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers))
-      showToast('Supplier updated successfully!', 'success')
-      setEditingId(null)
-    } else {
-      // Create new supplier
-      const newSupplier: Supplier = {
-        id: Date.now().toString(),
-        ...formData
+    try {
+      const url = editingId ? `/api/suppliers/${editingId}` : '/api/suppliers'
+      const method = editingId ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        showToast(`Supplier ${editingId ? 'updated' : 'added'} successfully!`, 'success')
+        setEditingId(null)
+        setFormData({
+          supplierName: '',
+          businessName: '',
+          address: '',
+          gstin: '',
+          pan: '',
+          accountNumber: '',
+          ifscCode: '',
+          accountName: '',
+          phone: '',
+          email: ''
+        })
+        loadSuppliers()
+      } else {
+        const data = await response.json()
+        showToast(data.error || 'Operation failed', 'error')
       }
-
-      // Save to localStorage
-      const updatedSuppliers = [...suppliers, newSupplier]
-      setSuppliers(updatedSuppliers)
-      localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers))
-      showToast('Supplier added successfully!', 'success')
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error')
     }
-
-    // Reset form
-    setFormData({
-      supplierName: '',
-      businessName: '',
-      address: '',
-      gstin: '',
-      pan: '',
-      accountNumber: '',
-      ifscCode: '',
-      accountName: '',
-      phone: '',
-      email: ''
-    })
   }
 
   return (
@@ -328,7 +329,7 @@ export default function SuppliersPage() {
             <CardContent>
               <div className="space-y-4">
                 {suppliers.map((supplier) => (
-                  <div key={supplier.id} className="border border-gray-200 rounded-lg p-4">
+                  <div key={supplier._id} className="border border-gray-200 rounded-lg p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-gray-900">{supplier.supplierName}</h3>
@@ -348,7 +349,7 @@ export default function SuppliersPage() {
                       <Button
                         size="sm"
                         onClick={() => handleEdit(supplier)}
-                        disabled={editingId === supplier.id}
+                        disabled={editingId === supplier._id}
                       >
                         Edit
                       </Button>

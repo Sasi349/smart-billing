@@ -11,19 +11,22 @@ import { ArrowLeft } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 
 interface Customer {
-  id: string
+  _id: string
   customerName: string
   businessName: string
   address: string
   gstin: string
   phone: string
   email: string
+  createdAt: string
+  updatedAt: string
 }
 
 export default function CustomersPage() {
   const router = useRouter()
   const { showToast, ToastContainer } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     customerName: '',
@@ -35,34 +38,28 @@ export default function CustomersPage() {
   })
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
-      return
-    }
+    loadCustomers()
+  }, [])
 
-    // Load customers from localStorage
-    const savedCustomers = localStorage.getItem('customers')
-    if (savedCustomers) {
-      try {
-        setCustomers(JSON.parse(savedCustomers))
-      } catch (error) {
-        console.error('Error loading customers:', error)
+  const loadCustomers = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/customers')
+      if (response.ok) {
+        const data = await response.json()
+        setCustomers(data)
+      } else if (response.status === 401) {
+        router.push('/login')
       }
+    } catch (error) {
+      console.error('Error loading customers:', error)
+    } finally {
+      setIsLoading(false)
     }
-  }, [router])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
   }
 
   const handleEdit = (customer: Customer) => {
-    setEditingId(customer.id)
+    setEditingId(customer._id)
     setFormData({
       customerName: customer.customerName,
       businessName: customer.businessName,
@@ -85,49 +82,53 @@ export default function CustomersPage() {
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Basic validation
     if (!formData.customerName || !formData.address) {
       showToast('Please fill in all required fields', 'error')
       return
     }
 
-    if (editingId) {
-      // Update existing customer
-      const updatedCustomers = customers.map(customer => 
-        customer.id === editingId 
-          ? { ...customer, ...formData }
-          : customer
-      )
-      setCustomers(updatedCustomers)
-      localStorage.setItem('customers', JSON.stringify(updatedCustomers))
-      showToast('Customer updated successfully!', 'success')
-      setEditingId(null)
-    } else {
-      // Create new customer
-      const newCustomer: Customer = {
-        id: Date.now().toString(),
-        ...formData
+    try {
+      const url = editingId ? `/api/customers/${editingId}` : '/api/customers'
+      const method = editingId ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        showToast(`Customer ${editingId ? 'updated' : 'added'} successfully!`, 'success')
+        setEditingId(null)
+        setFormData({
+          customerName: '',
+          businessName: '',
+          address: '',
+          gstin: '',
+          phone: '',
+          email: ''
+        })
+        loadCustomers()
+      } else {
+        const data = await response.json()
+        showToast(data.error || 'Operation failed', 'error')
       }
-
-      // Save to localStorage
-      const updatedCustomers = [...customers, newCustomer]
-      setCustomers(updatedCustomers)
-      localStorage.setItem('customers', JSON.stringify(updatedCustomers))
-      showToast('Customer added successfully!', 'success')
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error')
     }
-
-    // Reset form
-    setFormData({
-      customerName: '',
-      businessName: '',
-      address: '',
-      gstin: '',
-      phone: '',
-      email: ''
-    })
   }
 
   return (
@@ -257,7 +258,7 @@ export default function CustomersPage() {
             <CardContent>
               <div className="space-y-4">
                 {customers.map((customer) => (
-                  <div key={customer.id} className="border border-gray-200 rounded-lg p-4">
+                  <div key={customer._id} className="border border-gray-200 rounded-lg p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-gray-900">{customer.customerName}</h3>
@@ -274,7 +275,7 @@ export default function CustomersPage() {
                       <Button
                         size="sm"
                         onClick={() => handleEdit(customer)}
-                        disabled={editingId === customer.id}
+                        disabled={editingId === customer._id}
                       >
                         Edit
                       </Button>
