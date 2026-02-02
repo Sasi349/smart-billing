@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { Button } from '@/components/ui/button'
-import { Printer, ArrowLeft } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Printer, ArrowLeft, Mail, MessageCircle } from 'lucide-react'
 
 // Invoice data interfaces
 interface Supplier {
@@ -115,33 +118,237 @@ export default function BillingTemplatePage() {
   const router = useRouter()
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
   const [useDefaultData, setUseDefaultData] = useState(true)
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false)
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
+    // Check if user is authenticated by testing API
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          credentials: 'include'
+        })
+        
+        if (!response.ok) {
+          router.push('/login')
+          return
+        }
+
+        // Try to load invoice data from localStorage
+        const savedInvoiceData = localStorage.getItem('currentInvoice')
+        if (savedInvoiceData) {
+          try {
+            const parsed = JSON.parse(savedInvoiceData)
+            setInvoiceData(parsed)
+            setUseDefaultData(false)
+          } catch (error) {
+            console.error('Error loading invoice data:', error)
+            setUseDefaultData(true)
+          }
+        } else {
+          setUseDefaultData(true)
+        }
+      } catch (error) {
+        router.push('/login')
+      }
+    }
+    
+    checkAuth()
+  }, [router])
+
+  const handlePrint = async () => {
+    // Download PDF directly instead of opening print dialog
+    if (!useDefaultData && invoiceData) {
+      await downloadInvoicePDF(invoiceData)
+    } else {
+      // For default data, show message
+      alert('Please generate an invoice first to download the PDF')
+    }
+    
+    // Send email in background (non-blocking)
+    if (!useDefaultData && invoiceData) {
+      sendInvoiceEmailInBackground(invoiceData)
+    }
+  }
+
+  const downloadInvoicePDF = async (invoice: InvoiceData) => {
+    try {
+      console.log('Starting PDF download for invoice:', invoice.invoiceNumber)
+      
+      // Generate PDF using the dedicated PDF generation endpoint
+      const pdfResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/invoice/generate-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': document.cookie
+        },
+        body: JSON.stringify({ invoiceData: invoice })
+      })
+
+      if (!pdfResponse.ok) {
+        const errorData = await pdfResponse.json()
+        console.error('PDF generation failed:', errorData.error)
+        alert('Failed to generate PDF: ' + errorData.error)
+        return
+      }
+
+      // Get PDF as blob
+      const pdfBlob = await pdfResponse.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `invoice-${invoice.invoiceNumber}.pdf`
+      
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }, 100)
+      
+      console.log(`PDF downloaded successfully: invoice-${invoice.invoiceNumber}.pdf`)
+      
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('Failed to download PDF. Please try again.')
+    }
+  }
+
+  const sendInvoiceEmailInBackground = async (invoice: InvoiceData) => {
+    try {
+      console.log('Starting background email send for invoice:', invoice.invoiceNumber)
+      
+      // Get current user email
+      const userResponse = await fetch('/api/auth/me', {
+        credentials: 'include'
+      })
+      
+      if (!userResponse.ok) {
+        console.error('Failed to get user information for background email')
+        setEmailStatus('error')
+        return
+      }
+      
+      const userData = await userResponse.json()
+      const userEmail = userData.user.email
+
+      // Send invoice email in background
+      const emailResponse = await fetch('/api/invoice/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          invoiceData: {
+            supplier: {
+              businessName: invoice.supplier.businessName,
+              address: invoice.supplier.address,
+              gstin: invoice.supplier.gstin,
+              phone: invoice.supplier.phone,
+              email: invoice.supplier.email,
+              pan: invoice.supplier.pan,
+              accountNumber: invoice.supplier.accountNumber,
+              ifscCode: invoice.supplier.ifscCode,
+              accountName: invoice.supplier.accountName
+            },
+            customer: {
+              customerName: invoice.customer.customerName,
+              businessName: invoice.customer.businessName,
+              address: invoice.customer.address,
+              gstin: invoice.customer.gstin
+            },
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceDate: invoice.invoiceDate,
+            placeOfSupply: invoice.placeOfSupply,
+            items: invoice.items,
+            cgstRate: invoice.cgstRate,
+            sgstRate: invoice.sgstRate,
+            taxableValue: invoice.taxableValue,
+            cgstAmount: invoice.cgstAmount,
+            sgstAmount: invoice.sgstAmount,
+            total: invoice.total,
+            amountInWords: invoice.amountInWords
+          },
+          userEmail
+        })
+      })
+
+      const emailData = await emailResponse.json()
+      
+      if (emailResponse.ok) {
+        console.log(`Invoice ${invoice.invoiceNumber} sent in background to: ${userEmail}`)
+        setEmailStatus('sent')
+        // Reset status after 3 seconds
+        setTimeout(() => setEmailStatus('idle'), 3000)
+      } else {
+        console.error('Background email sending failed:', emailData.error)
+        setEmailStatus('error')
+        // Reset status after 3 seconds
+        setTimeout(() => setEmailStatus('idle'), 3000)
+      }
+    } catch (error) {
+      console.error('Error in background email sending:', error)
+      setEmailStatus('error')
+      // Reset status after 3 seconds
+      setTimeout(() => setEmailStatus('idle'), 3000)
+    }
+  }
+
+  const handleShareViaWhatsApp = () => {
+    setIsWhatsAppDialogOpen(true)
+  }
+
+  const handleWhatsAppWithPhoneNumber = () => {
+    if (!phoneNumber.trim()) {
+      alert('Please enter a valid phone number')
       return
     }
 
-    // Try to load invoice data from localStorage
-    const savedInvoiceData = localStorage.getItem('currentInvoice')
-    if (savedInvoiceData) {
-      try {
-        const parsed = JSON.parse(savedInvoiceData)
-        setInvoiceData(parsed)
-        setUseDefaultData(false)
-      } catch (error) {
-        console.error('Error loading invoice data:', error)
-        setUseDefaultData(true)
-      }
-    } else {
-      setUseDefaultData(true)
-    }
-  }, [router])
+    const cleanPhone = phoneNumber.replace(/[^\d+]/g, '')
+    const message = generateWhatsAppMessage()
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    
+    window.open(whatsappUrl, '_blank')
+    setIsWhatsAppDialogOpen(false)
+    setPhoneNumber('')
+  }
 
-  const handlePrint = () => {
-    window.print()
+  const handleWhatsAppChooseContacts = () => {
+    const message = generateWhatsAppMessage()
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
+    
+    window.open(whatsappUrl, '_blank')
+    setIsWhatsAppDialogOpen(false)
+  }
+
+  const generateWhatsAppMessage = () => {
+    if (!invoiceData || useDefaultData) {
+      return 'Check out this invoice from Smart Billing System'
+    }
+
+    return `📄 *Invoice ${invoiceData.invoiceNumber}*
+
+🏢 *From:* ${invoiceData.supplier.businessName}
+📧 *Email:* ${invoiceData.supplier.email}
+📞 *Phone:* ${invoiceData.supplier.phone}
+
+👤 *Bill To:* ${invoiceData.customer.customerName}
+🏢 *Business:* ${invoiceData.customer.businessName}
+
+💰 *Total Amount:* ₹${invoiceData.total.toLocaleString('en-IN')}
+📝 *Amount in Words:* ${invoiceData.amountInWords}
+
+📅 *Date:* ${invoiceData.invoiceDate}
+📍 *Place of Supply:* ${invoiceData.placeOfSupply}
+
+Generated via Smart Billing System`
   }
 
   // Get data based on whether we have real data or need to use defaults
@@ -232,7 +439,7 @@ export default function BillingTemplatePage() {
       
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-8 pt-20">
-        {/* Back and Print Buttons */}
+        {/* Back and Action Buttons */}
         <div className="mb-4 flex justify-between">
           <Button
             variant="ghost"
@@ -242,11 +449,96 @@ export default function BillingTemplatePage() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <Button onClick={handlePrint} className="print:hidden">
-            <Printer className="w-4 h-4 mr-2" />
-            Print Invoice
-          </Button>
+          <div className="flex gap-2">
+            <Dialog open={isWhatsAppDialogOpen} onOpenChange={setIsWhatsAppDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" onClick={handleShareViaWhatsApp} className="print:hidden hidden">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Share via WhatsApp</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="phone">Enter Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+1234567890"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Include country code (e.g., +91 for India)
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button 
+                      onClick={handleWhatsAppWithPhoneNumber}
+                      className="w-full"
+                      disabled={!phoneNumber.trim()}
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Send to This Number
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleWhatsAppChooseContacts}
+                      className="w-full"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Choose Contacts
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button onClick={handlePrint} className="print:hidden">
+              <Printer className="w-4 h-4 mr-2" />
+              Download Invoice
+            </Button>
+          </div>
         </div>
+
+        {/* Background Email Status Indicator */}
+        {emailStatus !== 'idle' && (
+          <div className="mb-4">
+            <div className={`p-3 rounded-lg border flex items-center gap-2 print:hidden ${
+              emailStatus === 'sending' 
+                ? 'bg-blue-50 border-blue-200 text-blue-800' 
+                : emailStatus === 'sent'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              {emailStatus === 'sending' ? (
+                <>
+                  <Mail className="w-4 h-4 animate-pulse" />
+                  <span className="text-sm font-medium">
+                    Sending invoice to your email...
+                  </span>
+                </>
+              ) : emailStatus === 'sent' ? (
+                <>
+                  <Mail className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    Invoice sent to your email successfully
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Mail className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    Failed to send invoice email
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white shadow-sm border border-gray-200 p-4 sm:p-8 print:shadow-none print:border-none">
           
@@ -368,7 +660,7 @@ export default function BillingTemplatePage() {
               <p className="text-xs sm:text-sm text-gray-600">This is a computer-generated invoice and does not require signature.</p>
             </div>
             <div className="text-right">
-              <div className="inline-block">
+              <div className="inline-block mt-8 pt-4">
                 <p className="text-sm sm:text-base font-medium text-gray-900">{businessDetails.name}</p>
                 <p className="text-xs sm:text-sm text-gray-600">Authorised Signatory</p>
               </div>

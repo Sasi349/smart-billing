@@ -60,26 +60,38 @@ export default function PreviewInvoicePage() {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
-      return
-    }
-
-    // Load invoice data from localStorage
-    const savedInvoice = localStorage.getItem('currentInvoice')
-    if (savedInvoice) {
+    // Check if user is authenticated by testing API
+    const checkAuth = async () => {
       try {
-        setInvoiceData(JSON.parse(savedInvoice))
+        const response = await fetch('/api/auth/verify', {
+          credentials: 'include'
+        })
+        
+        if (!response.ok) {
+          router.push('/login')
+          return
+        }
+
+        // Load invoice data from localStorage
+        const savedInvoice = localStorage.getItem('currentInvoice')
+        if (savedInvoice) {
+          try {
+            const parsedInvoice = JSON.parse(savedInvoice)
+            setInvoiceData(parsedInvoice)
+          } catch (error) {
+            console.error('Error loading invoice data:', error)
+            router.push('/billing')
+          }
+        } else {
+          // No invoice data, redirect to billing
+          router.push('/billing')
+        }
       } catch (error) {
-        console.error('Error loading invoice data:', error)
-        router.push('/billing')
+        router.push('/login')
       }
-    } else {
-      // No invoice data, redirect to billing
-      router.push('/billing')
     }
+    
+    checkAuth()
   }, [router])
 
   const handleEditInvoice = () => {
